@@ -38,6 +38,7 @@ export default function Home() {
   useEffect(() => {
     const token = Cookies.get("token");
     setUserToken(token || null);
+    
   }, []);
 
   const mutation = useMutation({

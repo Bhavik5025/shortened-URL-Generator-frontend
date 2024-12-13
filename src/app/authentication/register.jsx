@@ -31,7 +31,7 @@ export default function Register() {
         const { status, data } = res; // Destructure status and data from the response
         if (status === 201) {
           alert(data.message); // Access the message from response data
-          Cookies.set("token", data.token); // Set the token in cookies
+          Cookies.set("token", data.token,{ expires: 1 }); // Set the token in cookies
           router.push("/"); // Navigate to the desired page
         }
     },
