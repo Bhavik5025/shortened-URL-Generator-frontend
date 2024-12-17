@@ -4,6 +4,10 @@ import axios from "axios";
 import { useMutation } from "@tanstack/react-query";
 import Cookies from "js-cookie";
 import { useRouter } from "next/navigation"; 
+
+import { Input } from "@/components/ui/input";
+
+import { Button } from "@/components/ui/button";
 export default function Register() {
   const [name, setName] = useState("");
   const router=useRouter();
@@ -44,23 +48,23 @@ export default function Register() {
         mutation.mutate({ name, password });
     }
   return (
-    <form onSubmit={submit}>
-      <input
+    <form onSubmit={submit} className="p-3">
+      <Input
         type="text"
-        className="w-full p-5"
-        placeholder="enter Name"
+        className="my-2"
+        placeholder="Enter Name"
         onChange={(e) => setName(e.target.value)} 
         required
-      ></input>
-      <input
+      ></Input>
+      <Input
         type="password"
-        className="w-full p-5"
-        placeholder="enter password"
+        placeholder="Enter password"
+        className="my-2"
         onChange={(e) => setPassword(e.target.value)} 
         required
-      ></input>
+      ></Input>
       <div className="w-full flex justify-center">
-        <button type="submit" className="py-3 px-5 mb-3 bg-red-500 text-white rounded-xl">Save</button>
+        <Button type="submit" >Save</Button>
       </div>
     </form>
   );

@@ -4,17 +4,18 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
 import Cookies from "js-cookie";
 import Link from "next/link";
+import { Button } from "@/components/ui/button";
 import { useState, useEffect } from "react";
 
 export default function Url() {
-    const queryClient = useQueryClient();
-  
-    const [url_id, setUrlid] = useState(null);
+  const queryClient = useQueryClient();
+
+  const [url_id, setUrlid] = useState(null);
   const [original_url, setOriginalUrl] = useState("");
   const [friendly_name, setFriendlyName] = useState("");
   const [created_at, setCreatedAt] = useState("");
-const [shortendurl,setShortendurl]=useState("");
-const [Secret_key,setSecret_key]=useState("");
+  const [shortendurl, setShortendurl] = useState("");
+  const [Secret_key, setSecret_key] = useState("");
   // Fetch success count
   const fetch_totalsuccess = async () => {
     const usertoken = Cookies.get("token");
@@ -54,8 +55,8 @@ const [Secret_key,setSecret_key]=useState("");
     setUrlid(Cookies.get("url_id") || null);
     setOriginalUrl(Cookies.get("url_original") || "N/A");
     setFriendlyName(Cookies.get("friendly_name") || "N/A");
-    setShortendurl(Cookies.get("shortendurl") ||"N/A");
-    setSecret_key(Cookies.get("secret_key")|| "N/A")
+    setShortendurl(Cookies.get("shortendurl") || "N/A");
+    setSecret_key(Cookies.get("secret_key") || "N/A");
     setCreatedAt(
       Cookies.get("Creation_time")
         ? new Date(Cookies.get("Creation_time")).toLocaleString("en-IN", {
@@ -70,18 +71,25 @@ const [Secret_key,setSecret_key]=useState("");
           })
         : "N/A"
     );
-    queryClient.invalidateQueries(["Success_Count","Failure_Count"]);
-
+    queryClient.invalidateQueries(["Success_Count", "Failure_Count"]);
   }, []);
 
   // Queries to fetch success and failure counts separately
-  const { isLoading: isLoadingSuccess, isError: isErrorSuccess, data: success } = useQuery({
+  const {
+    isLoading: isLoadingSuccess,
+    isError: isErrorSuccess,
+    data: success,
+  } = useQuery({
     queryKey: ["Success_Count", url_id],
     queryFn: fetch_totalsuccess,
     enabled: !!url_id, // Ensure query runs only when url_id is set
   });
 
-  const { isLoading: isLoadingFailure, isError: isErrorFailure, data: failure } = useQuery({
+  const {
+    isLoading: isLoadingFailure,
+    isError: isErrorFailure,
+    data: failure,
+  } = useQuery({
     queryKey: ["Failure_Count", url_id],
     queryFn: fetch_totalfailure,
     enabled: !!url_id, // Ensure query runs only when url_id is set
@@ -89,7 +97,10 @@ const [Secret_key,setSecret_key]=useState("");
 
   useEffect(() => {
     if (isErrorSuccess || isErrorFailure) {
-      console.log("Error fetching data:", isErrorSuccess ? isErrorSuccess : isErrorFailure);
+      console.log(
+        "Error fetching data:",
+        isErrorSuccess ? isErrorSuccess : isErrorFailure
+      );
     }
   }, [isErrorSuccess, isErrorFailure]);
 
@@ -104,7 +115,13 @@ const [Secret_key,setSecret_key]=useState("");
       </div>
       <div className="mb-4">
         <h2>
-          <b>Shortend URL:</b><Link href= {shortendurl}>{shortendurl}</Link>
+          <b>Shortend URL:</b>
+          <Button
+            variant="link"
+            onClick={() => window.open(shortendurl, "_blank")}
+          >
+            {shortendurl}
+          </Button>
         </h2>
       </div>
       {/* <div className="mb-4">
@@ -129,48 +146,59 @@ const [Secret_key,setSecret_key]=useState("");
       <div className="mb-4">
         <h2>
           <b>Total Successful Clicks:</b>{" "}
-          {isLoadingSuccess ? "Loading..." : isErrorSuccess ? "Error fetching data" : success}
+          {isLoadingSuccess
+            ? "Loading..."
+            : isErrorSuccess
+            ? "Error fetching data"
+            : success}
         </h2>
       </div>
-     
 
       <div className="mb-4">
         <h2>
           <b>Total Failed Clicks:</b>{" "}
-          {isLoadingFailure ? "Loading..." : isErrorFailure ? "Error fetching data" : failure}
+          {isLoadingFailure
+            ? "Loading..."
+            : isErrorFailure
+            ? "Error fetching data"
+            : failure}
         </h2>
       </div>
 
       <div className="mb-4">
         <h2>
           <b>Secret_key:</b>{" "}
-          <input className="mr-2 w-1/5"  type="password" readOnly value={Secret_key}></input>
-  <i
-    className="cursor-pointer text-blue-500 hover:underline"
-    onClick={() => {
-      // Copy the secret_key to clipboard
-      navigator.clipboard.writeText(Secret_key).then(() => {
-        // Optionally, alert the user or show a confirmation
-        alert("Secret Key copied to clipboard!");
-      }).catch((error) => {
-        console.error("Failed to copy text: ", error);
-        alert("Failed to copy the secret key.");
-      });
-    }}
-  >
-    copy
-  </i>
-   
-         </h2>
+          <input
+            className="mr-2 w-1/5"
+            type="password"
+            readOnly
+            value={Secret_key}
+          ></input>
+          <i
+            className="cursor-pointer text-blue-500 hover:underline"
+            onClick={() => {
+              // Copy the secret_key to clipboard
+              navigator.clipboard
+                .writeText(Secret_key)
+                .then(() => {
+                  // Optionally, alert the user or show a confirmation
+                  alert("Secret Key copied to clipboard!");
+                })
+                .catch((error) => {
+                  console.error("Failed to copy text: ", error);
+                  alert("Failed to copy the secret key.");
+                });
+            }}
+          >
+            copy
+          </i>
+        </h2>
       </div>
 
       <div className="flex justify-center">
-        <button
-          onClick={() => window.history.back()}
-          className="bg-red-500 hover:bg-red-600 text-white py-2 px-4 rounded-lg"
-        >
-          Go Back
-        </button>
+        <Button   onClick={() => window.history.back()}>  Go Back
+        </Button>
+        
       </div>
     </div>
   );
