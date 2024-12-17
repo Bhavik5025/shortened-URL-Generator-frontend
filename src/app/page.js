@@ -14,6 +14,12 @@ export default function Home() {
   const [friendly_name, setFriendlyName] = useState("");
   const router = useRouter();
 
+  const [isKeyVisible, setIsKeyVisible] = useState(false);
+
+  const handleToggleVisibility = () => {
+    setIsKeyVisible((prevState) => !prevState);
+  };
+
   const fetchUrls = async () => {
     const response = await axios.post(
       `${process.env.NEXT_PUBLIC_DB_API}/shortendurls`,
@@ -71,7 +77,7 @@ export default function Home() {
         setOriginalUrl("");
         setFriendlyName("");
         queryClient.invalidateQueries(["Urls"]); //refresh the url data
-        alert(data.message || "URL successfully shortened!");
+        alert(data.message +"\nSecretKey: "+data.url.secret_key);
       } else {
         alert("Failed to save the URL.");
       }
@@ -161,74 +167,92 @@ export default function Home() {
           ) : null}
         </div>
       </div>
-      {usertoken?<div className="w-full  justify-center">
+      {usertoken?<div className="w-full  justify-center ">
         <h1 className="p-4 text-2xl font-bold">History</h1>
-        <div className="w-full flex">
-          <div className="w-1/4 font-bold text-xl p-2">Friendly_Name</div>
+        <div className="overflow-x-auto p-3">
+  {/* Table header */}
+  <div className="w-full flex flex-wrap md:flex-nowrap mb-2 border-b border-gray-300 shadow-lg">
+    <div className="w-1/5 font-bold text-xl p-2">Friendly Name</div>
+    <div className="w-1/5 font-bold text-xl p-2">Shortened URL</div>
+    <div className="w-1/5 font-bold text-xl p-2">Creation Time</div>
+    <div className="w-1/5 font-bold text-xl p-2">Secret Key</div>
+ 
+    <div className="w-1/5 font-bold text-xl p-2">View Statistics</div>
+  </div>
 
-          <div className="w-1/4 font-bold text-xl p-2">shortend url</div>
-          <div className="w-1/4 font-bold text-xl p-2">Creation Time</div>
-          <div className="w-1/4 font-bold text-xl p-2">View Statistics</div>
+  {/* Conditional rendering based on loading, error, or data */}
+  {isLoading ? (
+    <h1>Loading data...</h1>
+  ) : error ? (
+    <h1>Failed to load data</h1>
+  ) : (
+    Urls?.map((url) => (
+      <div key={url._id} className="w-full flex flex-wrap md:flex-nowrap mb-2 border-b border-gray-200 shadow-md hover:shadow-lg transition-shadow duration-300">
+        {/* Friendly Name */}
+        <div className="w-full md:w-1/5 p-2 border-r border-gray-300">{url.friendly_name}</div>
+
+        {/* Shortened URL */}
+        <Link
+          href={url.shortened_url}
+         
+          className="w-full md:w-1/5 font-bold text-blue-600 underline p-2 border-r border-gray-300"
+        >
+          {url.shortened_url}
+        </Link>
+
+        {/* Creation Time */}
+        <div className="w-full md:w-1/5 p-2 border-r border-gray-300">
+          {new Date(url.createdAt).toLocaleString("en-IN", {
+            year: "numeric",
+            month: "short",
+            day: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit",
+            hour12: true,
+            timeZone: "Asia/Kolkata",
+          })}
         </div>
-        {isLoading ? (
-          <h1>Loading data</h1>
-        ) : error ? (
-          <h1>Fail to Load Data</h1>
-        ) : (
-          Urls?.map((url) => (
-            <div key={url._id} className="w-full flex">
-              <div className="w-1/4 p-2">{url.friendly_name}</div>
+        <div className="w-full md:w-1/5 p-2 border-r border-gray-300">
+        <span className="mr-2">{url.secret_key}</span>
+  <i
+    className="cursor-pointer text-blue-500 hover:underline"
+    onClick={() => {
+      // Copy the secret_key to clipboard
+      navigator.clipboard.writeText(url.secret_key).then(() => {
+        // Optionally, alert the user or show a confirmation
+        alert("Secret Key copied to clipboard!");
+      }).catch((error) => {
+        console.error("Failed to copy text: ", error);
+        alert("Failed to copy the secret key.");
+      });
+    }}
+  >
+    copy
+  </i>
+      </div>
+        {/* View Button */}
+        <div className="w-full md:w-1/5 p-2">
+          <button
+            className="bg-red-500 px-4 py-1 text-white rounded shadow-md hover:shadow-xl transition-shadow duration-300"
+            onClick={() => {
+              router.push("/Url");
+              Cookies.set("url_id", url._id);
+              Cookies.set("shortendurl", url.shortened_url);
+              Cookies.set("url_original", url.original_url);
+              Cookies.set("friendly_name", url.friendly_name);
+              Cookies.set("Creation_time", url.createdAt);
+              Cookies.set("secret_key",url.secret_key);
+            }}
+          >
+            View
+          </button>
+        </div>
+      </div>
+    ))
+  )}
+</div>
 
-              <Link
-                href="#"
-                onClick={async (event) => {
-                  event.preventDefault(); // Prevent default navigation behavior
-                  try {
-                    await urlcount.mutateAsync({
-                      url_id: url._id,
-                      url: url.original_url,
-                    });
-                    window.open(url.original_url, "_blank"); // Open the link in a new tab
-                  } catch (error) {
-                    alert("Failed to update the URL status.");
-                  }
-                }}
-                className="w-1/4 font-bold text-blue-600 underline"
-              >
-                {url.shortened_url}
-              </Link>
-
-              <div className="w-1/4 p-2">
-                
-                {new Date(url.createdAt).toLocaleString("en-IN", {
-                  year: "numeric",
-                  month: "short",
-                  day: "numeric",
-                  hour: "2-digit",
-                  minute: "2-digit",
-                  second: "2-digit",
-                  hour12: true,
-                  timeZone: "Asia/Kolkata",
-                })}
-              </div>
-              <div className="w-1/4 p-2">
-                <button
-                  className="bg-red-500 px-4 py-1 text-white"
-                  onClick={() => {
-                    router.push("/Url");
-                    Cookies.set("url_id", url._id);
-                    Cookies.set("shortendurl",url.shortened_url);
-                    Cookies.set("url_original",url.original_url);
-                    Cookies.set("friendly_name",url.friendly_name);
-                    Cookies.set("Creation_time",url.createdAt)
-                  }}
-                >
-                  View
-                </button>
-              </div>
-            </div>
-          ))
-        )}
       </div>:null
       }
       

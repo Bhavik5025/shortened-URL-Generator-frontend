@@ -3,6 +3,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
 import Cookies from "js-cookie";
+import Link from "next/link";
 import { useState, useEffect } from "react";
 
 export default function Url() {
@@ -13,6 +14,7 @@ export default function Url() {
   const [friendly_name, setFriendlyName] = useState("");
   const [created_at, setCreatedAt] = useState("");
 const [shortendurl,setShortendurl]=useState("");
+const [Secret_key,setSecret_key]=useState("");
   // Fetch success count
   const fetch_totalsuccess = async () => {
     const usertoken = Cookies.get("token");
@@ -53,6 +55,7 @@ const [shortendurl,setShortendurl]=useState("");
     setOriginalUrl(Cookies.get("url_original") || "N/A");
     setFriendlyName(Cookies.get("friendly_name") || "N/A");
     setShortendurl(Cookies.get("shortendurl") ||"N/A");
+    setSecret_key(Cookies.get("secret_key")|| "N/A")
     setCreatedAt(
       Cookies.get("Creation_time")
         ? new Date(Cookies.get("Creation_time")).toLocaleString("en-IN", {
@@ -101,10 +104,10 @@ const [shortendurl,setShortendurl]=useState("");
       </div>
       <div className="mb-4">
         <h2>
-          <b>Shortend URL:</b> {shortendurl}
+          <b>Shortend URL:</b><Link href= {shortendurl}>{shortendurl}</Link>
         </h2>
       </div>
-      <div className="mb-4">
+      {/* <div className="mb-4">
         <h2>
           <b>Original URL:</b>{" "}
           <a
@@ -116,7 +119,7 @@ const [shortendurl,setShortendurl]=useState("");
             {original_url}
           </a>
         </h2>
-      </div>
+      </div> */}
       <div className="mb-4">
         <h2>
           <b>Created At:</b> {created_at}
@@ -129,12 +132,36 @@ const [shortendurl,setShortendurl]=useState("");
           {isLoadingSuccess ? "Loading..." : isErrorSuccess ? "Error fetching data" : success}
         </h2>
       </div>
+     
 
       <div className="mb-4">
         <h2>
           <b>Total Failed Clicks:</b>{" "}
           {isLoadingFailure ? "Loading..." : isErrorFailure ? "Error fetching data" : failure}
         </h2>
+      </div>
+
+      <div className="mb-4">
+        <h2>
+          <b>Secret_key:</b>{" "}
+          <input className="mr-2 w-1/5"  type="password" readOnly value={Secret_key}></input>
+  <i
+    className="cursor-pointer text-blue-500 hover:underline"
+    onClick={() => {
+      // Copy the secret_key to clipboard
+      navigator.clipboard.writeText(Secret_key).then(() => {
+        // Optionally, alert the user or show a confirmation
+        alert("Secret Key copied to clipboard!");
+      }).catch((error) => {
+        console.error("Failed to copy text: ", error);
+        alert("Failed to copy the secret key.");
+      });
+    }}
+  >
+    copy
+  </i>
+   
+         </h2>
       </div>
 
       <div className="flex justify-center">

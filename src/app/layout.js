@@ -1,6 +1,7 @@
 import localFont from "next/font/local";
 import "./globals.css";
-
+import "@radix-ui/themes/styles.css";
+import { Theme } from "@radix-ui/themes";
 import { TanstackProvider } from "./tanstack-provider";
 
 const geistSans = localFont({
@@ -25,7 +26,10 @@ export default function RootLayout({ children }) {
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-       <TanstackProvider>{children}</TanstackProvider>  
+        <Theme accentColor="crimson" grayColor="sand" radius="large" scaling="95%">
+
+          <TanstackProvider>{children}</TanstackProvider>  
+				</Theme>
       </body>
     </html>
   );
