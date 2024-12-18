@@ -7,6 +7,17 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
 import Link from "next/link";
 import { Input } from "@/components/ui/input";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -24,8 +35,8 @@ export default function Home() {
   const [usertoken, setUserToken] = useState(null);
   const [original_url, setOriginalUrl] = useState("");
   const [friendly_name, setFriendlyName] = useState("");
+  const [secretkeystatus, setSecretkeyStatus] = useState(true);
   const router = useRouter();
-
 
   const fetchUrls = async () => {
     const response = await axios.post(
@@ -53,12 +64,25 @@ export default function Home() {
     setUserToken(token || null);
   }, []);
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const rowsPerPage = 4;
+
+  // Calculate the total pages
+  const totalPages = Urls ? Math.ceil(Urls.length / rowsPerPage) : 0;
+  const currentRows = Urls
+    ? Urls.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage)
+    : [];
+
+  const handlePageChange = (page) => {
+    setCurrentPage(page);
+  };
+
   const mutation = useMutation({
     mutationFn: async ({ original_url, friendly_name }) => {
       try {
         const response = await axios.post(
           `${process.env.NEXT_PUBLIC_DB_API}/createShortendUrl`,
-          { original_url, friendly_name },
+          { original_url, friendly_name, secret_key_status: secretkeystatus },
           {
             headers: {
               Authorization: `Bearer ${usertoken}`, // Pass token in headers
@@ -83,7 +107,10 @@ export default function Home() {
         setOriginalUrl("");
         setFriendlyName("");
         queryClient.invalidateQueries(["Urls"]); //refresh the url data
-        alert(data.message + "\nSecretKey: " + data.url.secret_key);
+        alert(
+          data.message +
+            (data.url.secret_key ? `\nSecretKey: ${data.url.secret_key}` : "")
+        );
       } else {
         alert("Failed to save the URL.");
       }
@@ -92,7 +119,7 @@ export default function Home() {
       alert(error.message);
     },
   });
- 
+
   const submit = (event) => {
     event.preventDefault();
 
@@ -139,6 +166,27 @@ export default function Home() {
               onChange={(event) => setFriendlyName(event.target.value)}
               required
             ></Input>
+            <div className="flex px-2">
+              <label className="py-3 pr-2">Generate Secret Key :</label>
+              <RadioGroup defaultValue="yes" className="flex">
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem
+                    value="yes"
+                    id="r1"
+                    onClick={() => setSecretkeyStatus(true)}
+                  />
+                  <label htmlFor="r1">Yes</label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem
+                    value="no"
+                    id="r2"
+                    onClick={() => setSecretkeyStatus(false)}
+                  />
+                  <label htmlFor="r2">No</label>
+                </div>
+              </RadioGroup>
+            </div>
 
             <div className="w-full flex justify-center">
               <Button type="submit">Convert</Button>
@@ -149,7 +197,7 @@ export default function Home() {
       <div className="w-full flex justify-center">
         <div className="w-full lg:w-1/3 md:w-1/3 justify-end flex">
           {!usertoken ? (
-            <Button   variant="link"  onClick={() => router.push("/authentication")}>
+            <Button onClick={() => router.push("/authentication")}>
               login
             </Button>
           ) : null}
@@ -159,102 +207,216 @@ export default function Home() {
         <div className="w-full  justify-center ">
           <div className="overflow-x-auto p-3">
             {/* Table header */}
-            <Table className="p-3">
-            <TableCaption>A list of shortened URLs with their creation dates.</TableCaption>
+            <Table className="min-w-full border rounded-lg">
+              <TableCaption>
+                A comprehensive list of shortened URLs with their metadata.
+              </TableCaption>
 
-      {/* Table Header */}
-      <TableHeader>
-        <TableRow>
-          <TableHead>Friendly Name</TableHead>
-          <TableHead>Shortened URL</TableHead>
-          <TableHead>Created At</TableHead>
-          <TableHead>Secret Key</TableHead>
-          <TableHead>View Statistics</TableHead>
-        </TableRow>
-      </TableHeader>
+              {/* Table Header */}
+              <TableHeader>
+                <TableRow className="bg-gray-100">
+                  <TableHead className="text-left py-3 px-4">
+                    Friendly Name
+                  </TableHead>
+                  <TableHead className="text-left py-3 px-4">
+                    Shortened URL
+                  </TableHead>
+                  <TableHead className="text-left py-3 px-4">
+                    Created At
+                  </TableHead>
+                  <TableHead className="text-left py-3 px-4">
+                    Secret Key
+                  </TableHead>
+                  <TableHead className="text-center py-3 px-4">
+                    Actions
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
 
-      {/* Conditional Rendering */}
-      <TableBody>
-        {isLoading ? (
-          <TableRow>
-            <TableCell colSpan={5} className="text-center">
-              Loading data...
-            </TableCell>
-          </TableRow>
-        ) : error ? (
-          <TableRow>
-            <TableCell colSpan={5} className="text-center text-red-500">
-              Failed to load data
-            </TableCell>
-          </TableRow>
-        ) : (
-          Urls?.map((url) => (
-            <TableRow key={url._id} className="hover:bg-gray-100 transition-colors duration-200">
-              {/* Friendly Name */}
-              <TableCell>{url.friendly_name}</TableCell>
+              {/* Table Body */}
+              <TableBody>
+                {isLoading ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center py-5">
+                      <div className="flex justify-center items-center">
+                        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-blue-500"></div>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : error ? (
+                  <TableRow>
+                    <TableCell
+                      colSpan={5}
+                      className="text-center text-red-600 py-5"
+                    >
+                      Failed to load data. Please try again later.
+                    </TableCell>
+                  </TableRow>
+                ) : currentRows.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center py-5">
+                      No URLs available. Start by adding one!
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  currentRows.map((url) => (
+                    <TableRow
+                      key={url._id}
+                      className="hover:bg-gray-50 transition duration-150"
+                    >
+                      <TableCell className="py-3 px-4">
+                        {url.friendly_name}
+                      </TableCell>
 
-              {/* Shortened URL */}
-              <TableCell>
-              <Button
-            variant="link"
-            onClick={() => window.open(url.shortened_url, "_blank")}
-          >
-            {url.shortened_url}
-            </Button>
-              </TableCell>
+                      {/* Shortened URL */}
+                      <TableCell className="py-3 px-4">
+                        <Button
+                          variant="link"
+                          onClick={() =>
+                            window.open(url.shortened_url, "_blank")
+                          }
+                          className="text-blue-500 hover:underline"
+                        >
+                          {url.shortened_url}
+                        </Button>
+                      </TableCell>
 
-              {/* Creation Time */}
-              <TableCell>
-                {new Date(url.createdAt).toLocaleString("en-IN", {
-                  year: "numeric",
-                  month: "short",
-                  day: "numeric",
-                  hour: "2-digit",
-                  minute: "2-digit",
-                  second: "2-digit",
-                  hour12: true,
-                  timeZone: "Asia/Kolkata",
+                      {/* Creation Time */}
+                      <TableCell className="py-3 px-4">
+                        {new Date(url.createdAt).toLocaleString("en-IN", {
+                          year: "numeric",
+                          month: "short",
+                          day: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                          second: "2-digit",
+                          hour12: true,
+                          timeZone: "Asia/Kolkata",
+                        })}
+                      </TableCell>
+
+                      {/* Secret Key */}
+                      <TableCell className="py-3 px-4 flex items-center">
+                        {url.secret_key ? (
+                          <>
+                            <span className="mr-2">{url.secret_key}</span>
+                            <span
+                              className="cursor-pointer text-blue-500 hover:underline"
+                              onClick={() => {
+                                navigator.clipboard
+                                  .writeText(url.secret_key)
+                                  .then(() =>
+                                    alert("Secret Key copied to clipboard!")
+                                  )
+                                  .catch(() =>
+                                    alert("Failed to copy the secret key.")
+                                  );
+                              }}
+                            >
+                              Copy
+                            </span>
+                          </>
+                        ) : (
+                          <label className="text-center w-full">-</label>
+                        )}
+                      </TableCell>
+
+                      {/* Actions */}
+                      <TableCell className="py-3 px-4 text-center">
+                        <Button
+                          variant="outline"
+                          className="mr-2"
+                          onClick={() => {
+                            router.push("/Url");
+                            Cookies.set("url_id", url._id);
+                            Cookies.set("shortendurl", url.shortened_url);
+                            Cookies.set("url_original", url.original_url);
+                            Cookies.set("friendly_name", url.friendly_name);
+                            Cookies.set("Creation_time", url.createdAt);
+                            Cookies.set("secret_key", url.secret_key);
+                          }}
+                        >
+                          View
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+            <Pagination>
+              <PaginationContent>
+                {/* First Page Button */}
+                <PaginationItem>
+                  <PaginationLink
+                    onClick={() => handlePageChange(1)}
+                    disabled={currentPage === 1}
+                  >
+                    First
+                  </PaginationLink>
+                </PaginationItem>
+
+                {/* Previous Button */}
+                <PaginationItem>
+                  <PaginationPrevious
+                    onClick={() => handlePageChange(currentPage - 1)}
+                    disabled={currentPage === 1}
+                  />
+                </PaginationItem>
+
+                {/* Page Numbers */}
+                {Array.from({ length: totalPages }).map((_, index) => {
+                  const page = index + 1;
+
+                  // Always show first, last, current, and adjacent pages
+                  if (
+                    page === 1 ||
+                    page === totalPages ||
+                    (page >= currentPage - 1 && page <= currentPage + 1)
+                  ) {
+                    return (
+                      <PaginationItem
+                        key={page}
+                        className={currentPage === page ? "active" : ""}
+                      >
+                        <PaginationLink onClick={() => handlePageChange(page)}>
+                          {page}
+                        </PaginationLink>
+                      </PaginationItem>
+                    );
+                  }
+
+                  // Ellipsis for skipped pages
+                  if (
+                    (page === currentPage - 2 || page === currentPage + 2) &&
+                    totalPages > 5
+                  ) {
+                    return <PaginationEllipsis key={`ellipsis-${page}`} />;
+                  }
+
+                  return null;
                 })}
-              </TableCell>
 
-              {/* Secret Key */}
-              <TableCell>
-                <span className="mr-2">{url.secret_key}</span>
-                <span
-                  className="cursor-pointer text-blue-500 hover:underline"
-                  onClick={() => {
-                    navigator.clipboard
-                      .writeText(url.secret_key)
-                      .then(() => alert("Secret Key copied to clipboard!"))
-                      .catch(() => alert("Failed to copy the secret key."));
-                  }}
-                >
-                  Copy
-                </span>
-              </TableCell>
+                {/* Next Button */}
+                <PaginationItem>
+                  <PaginationNext
+                    onClick={() => handlePageChange(currentPage + 1)}
+                    disabled={currentPage === totalPages}
+                  />
+                </PaginationItem>
 
-              {/* View Statistics Button */}
-              <TableCell>
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    router.push("/Url");
-                    Cookies.set("url_id", url._id);
-                    Cookies.set("shortendurl", url.shortened_url);
-                    Cookies.set("url_original", url.original_url);
-                    Cookies.set("friendly_name", url.friendly_name);
-                    Cookies.set("Creation_time", url.createdAt);
-                    Cookies.set("secret_key", url.secret_key);
-                  }}
-                >
-                  View
-                </Button>
-              </TableCell>
-            </TableRow>
-          ))
-        )}
-      </TableBody>
-    </Table>          </div>
+                {/* Last Page Button */}
+                <PaginationItem>
+                  <PaginationLink
+                    onClick={() => handlePageChange(totalPages)}
+                    disabled={currentPage === totalPages}
+                  >
+                    Last
+                  </PaginationLink>
+                </PaginationItem>
+              </PaginationContent>
+            </Pagination>
+          </div>
         </div>
       ) : null}
     </div>

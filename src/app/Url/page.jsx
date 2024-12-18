@@ -3,203 +3,270 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
 import Cookies from "js-cookie";
-import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { useState, useEffect } from "react";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
+import {
+  Table,
+  TableBody,
+  TableCaption,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+
+const useAuthToken = () => {
+  return Cookies.get("token");
+};
+
+const fetchUrls = async (url_id, token) => {
+  const response = await axios.get(
+    `${process.env.NEXT_PUBLIC_DB_API}/Url_statistics/${url_id}`,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+  return response.data.urls;
+};
+
+const fetchCount = async (url_id, endpoint, token) => {
+  const response = await axios.post(
+    `${process.env.NEXT_PUBLIC_DB_API}/${endpoint}`,
+    { url_id },
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+  return response.data.success || 0;
+};
 
 export default function Url() {
   const queryClient = useQueryClient();
-
   const [url_id, setUrlid] = useState(null);
-  const [original_url, setOriginalUrl] = useState("");
-  const [friendly_name, setFriendlyName] = useState("");
-  const [created_at, setCreatedAt] = useState("");
-  const [shortendurl, setShortendurl] = useState("");
-  const [Secret_key, setSecret_key] = useState("");
-  // Fetch success count
-  const fetch_totalsuccess = async () => {
-    const usertoken = Cookies.get("token");
-    if (!usertoken) throw new Error("User not authenticated");
+  const [urlData, setUrlData] = useState({
+    original_url: "N/A",
+    friendly_name: "N/A",
+    created_at: "N/A",
+    shortendurl: "N/A",
+    secret_key: "N/A",
+  });
+  const [usertoken, setUserToken] = useState(null);
 
-    const response = await axios.post(
-      `${process.env.NEXT_PUBLIC_DB_API}/success_count`,
-      { url_id },
-      {
-        headers: {
-          Authorization: `Bearer ${usertoken}`,
-        },
-      }
-    );
-    return response.data.success || 0; // Ensure it's returning a default value if not found
-  };
-
-  // Fetch failure count
-  const fetch_totalfailure = async () => {
-    const usertoken = Cookies.get("token");
-    if (!usertoken) throw new Error("User not authenticated");
-
-    const response = await axios.post(
-      `${process.env.NEXT_PUBLIC_DB_API}/failure_count`,
-      { url_id },
-      {
-        headers: {
-          Authorization: `Bearer ${usertoken}`,
-        },
-      }
-    );
-    return response.data.success || 0; // Ensure it's returning a default value if not found
-  };
-
-  // Load initial data from cookies
+  // Call useAuthToken hook at the top level, not inside useEffect
+  const token = useAuthToken();
   useEffect(() => {
+    setUserToken(token || null);
     setUrlid(Cookies.get("url_id") || null);
-    setOriginalUrl(Cookies.get("url_original") || "N/A");
-    setFriendlyName(Cookies.get("friendly_name") || "N/A");
-    setShortendurl(Cookies.get("shortendurl") || "N/A");
-    setSecret_key(Cookies.get("secret_key") || "N/A");
-    setCreatedAt(
-      Cookies.get("Creation_time")
-        ? new Date(Cookies.get("Creation_time")).toLocaleString("en-IN", {
-            year: "numeric",
-            month: "short",
-            day: "numeric",
-            hour: "2-digit",
-            minute: "2-digit",
-            second: "2-digit",
-            hour12: true,
-            timeZone: "Asia/Kolkata",
-          })
-        : "N/A"
-    );
+
+    setUrlData({
+      original_url: Cookies.get("url_original") || "N/A",
+      friendly_name: Cookies.get("friendly_name") || "N/A",
+      shortendurl: Cookies.get("shortendurl") || "N/A",
+      secret_key: Cookies.get("secret_key") || "N/A",
+      created_at:
+        Cookies.get("Creation_time") &&
+        new Date(Cookies.get("Creation_time")).toLocaleString("en-IN", {
+          year: "numeric",
+          month: "short",
+          day: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+          hour12: true,
+          timeZone: "Asia/Kolkata",
+        }) || "N/A",
+    });
+
     queryClient.invalidateQueries(["Success_Count", "Failure_Count"]);
-  }, []);
+  }, [token, queryClient]); // Add queryClient to dependency array
 
-  // Queries to fetch success and failure counts separately
-  const {
-    isLoading: isLoadingSuccess,
-    isError: isErrorSuccess,
-    data: success,
-  } = useQuery({
+  const { isLoading, error, data: Urls } = useQuery({
+    queryKey: ["Urls", url_id],
+    queryFn: () => fetchUrls(url_id, usertoken),
+    enabled: !!url_id && !!usertoken, // Ensure both values are truthy
+  });
+  
+  const { data: success, isLoading: isLoadingSuccess } = useQuery({
     queryKey: ["Success_Count", url_id],
-    queryFn: fetch_totalsuccess,
-    enabled: !!url_id, // Ensure query runs only when url_id is set
+    queryFn: () => fetchCount(url_id, "success_count", usertoken),
+    enabled: !!url_id && !!usertoken, // Ensure both values are truthy
   });
-
-  const {
-    isLoading: isLoadingFailure,
-    isError: isErrorFailure,
-    data: failure,
-  } = useQuery({
+  
+  const { data: failure, isLoading: isLoadingFailure } = useQuery({
     queryKey: ["Failure_Count", url_id],
-    queryFn: fetch_totalfailure,
-    enabled: !!url_id, // Ensure query runs only when url_id is set
+    queryFn: () => fetchCount(url_id, "failure_count", usertoken),
+    enabled: !!url_id && !!usertoken, // Ensure both values are truthy
   });
+  
 
-  useEffect(() => {
-    if (isErrorSuccess || isErrorFailure) {
-      console.log(
-        "Error fetching data:",
-        isErrorSuccess ? isErrorSuccess : isErrorFailure
-      );
-    }
-  }, [isErrorSuccess, isErrorFailure]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const rowsPerPage = 4;
+
+  const totalPages = Urls ? Math.ceil(Urls.length / rowsPerPage) : 0;
+  const currentRows = Urls
+    ? Urls.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage)
+    : [];
+
+  const handlePageChange = (page) => {
+    setCurrentPage(page);
+  };
 
   return (
-    <div className="p-6 max-w-lg mx-auto bg-white shadow-lg rounded-lg">
-      <h1 className="text-center mb-5 text-2xl font-bold">URL Statistics</h1>
-
-      <div className="mb-4">
-        <h2>
-          <b>Friendly Name:</b> {friendly_name}
-        </h2>
-      </div>
-      <div className="mb-4">
-        <h2>
-          <b>Shortend URL:</b>
-          <Button
-            variant="link"
-            onClick={() => window.open(shortendurl, "_blank")}
-          >
-            {shortendurl}
-          </Button>
-        </h2>
-      </div>
-      {/* <div className="mb-4">
-        <h2>
-          <b>Original URL:</b>{" "}
-          <a
-            href={original_url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-blue-600 underline"
-          >
-            {original_url}
-          </a>
-        </h2>
-      </div> */}
-      <div className="mb-4">
-        <h2>
-          <b>Created At:</b> {created_at}
-        </h2>
-      </div>
-
-      <div className="mb-4">
-        <h2>
-          <b>Total Successful Clicks:</b>{" "}
-          {isLoadingSuccess
-            ? "Loading..."
-            : isErrorSuccess
-            ? "Error fetching data"
-            : success}
-        </h2>
-      </div>
-
-      <div className="mb-4">
-        <h2>
-          <b>Total Failed Clicks:</b>{" "}
-          {isLoadingFailure
-            ? "Loading..."
-            : isErrorFailure
-            ? "Error fetching data"
-            : failure}
-        </h2>
-      </div>
-
-      <div className="mb-4">
-        <h2>
-          <b>Secret_key:</b>{" "}
-          <input
-            className="mr-2 w-1/5"
-            type="password"
-            readOnly
-            value={Secret_key}
-          ></input>
-          <i
-            className="cursor-pointer text-blue-500 hover:underline"
-            onClick={() => {
-              // Copy the secret_key to clipboard
-              navigator.clipboard
-                .writeText(Secret_key)
-                .then(() => {
-                  // Optionally, alert the user or show a confirmation
-                  alert("Secret Key copied to clipboard!");
-                })
-                .catch((error) => {
-                  console.error("Failed to copy text: ", error);
-                  alert("Failed to copy the secret key.");
-                });
-            }}
-          >
-            copy
-          </i>
-        </h2>
+    <>
+      <div className="p-6 max-w-4xl mx-auto bg-white shadow-lg rounded-lg mb-3">
+        <div className="flex w-full justify-center"><h1 className="w-1/2 text-start mb-5 text-2xl font-bold">URL Statistics</h1>
+        <div className="flex  w-1/2 justify-end">
+          <Button onClick={() => window.history.back()}>Go Back</Button>
+        </div>
+        </div>
+        <div className="mb-4">
+          <h2>
+            <b>Device Information:</b> {urlData.friendly_name}
+          </h2>
+        </div>
+        <div className="mb-4">
+          <h2>
+            <b>Shortened URL:</b>
+            <Button
+              variant="link"
+              onClick={() => window.open(urlData.shortendurl, "_blank")}
+            >
+              {urlData.shortendurl}
+            </Button>
+          </h2>
+        </div>
+        <div className="mb-4">
+          <h2>
+            <b>Created At:</b> {urlData.created_at}
+          </h2>
+        </div>
+        <div className="mb-4">
+          <h2>
+            <b>Total Successful Clicks:</b>{" "}
+            {isLoadingSuccess ? "Loading..." : success}
+          </h2>
+        </div>
+        <div className="mb-4">
+          <h2>
+            <b>Total Failed Clicks:</b>{" "}
+            {isLoadingFailure ? "Loading..." : failure}
+          </h2>
+        </div>
+        <div className="mb-4">
+          <h2>
+            <b>Secret Key:</b>
+            <input
+             className="mr-2 w-20"
+              type="password"
+              readOnly
+              value={urlData.secret_key}
+            />
+            <i
+              className="cursor-pointer text-blue-500 hover:underline"
+              onClick={() => {
+                navigator.clipboard
+                  .writeText(urlData.secret_key)
+                  .then(() => alert("Secret Key copied to clipboard!"))
+                  .catch((error) => alert("Failed to copy the secret key."));
+              }}
+            >
+              copy
+            </i>
+          </h2>
+        </div>
       </div>
 
-      <div className="flex justify-center">
-        <Button   onClick={() => window.history.back()}>  Go Back
-        </Button>
-        
-      </div>
-    </div>
+      <Table className="p-6 max-w-4xl mx-auto bg-white shadow-lg rounded-lg">
+        <TableCaption>URL Request Statistics</TableCaption>
+        <TableHeader>
+          <TableRow className="bg-gray-100">
+            <TableHead className="text-left py-3 px-4">Device and Browser</TableHead>
+            <TableHead className="text-left py-3 px-4">IP Address</TableHead>
+            <TableHead className="text-left py-3 px-4">Status</TableHead>
+            <TableHead className="text-left py-3 px-4">Time</TableHead>
+          </TableRow>
+        </TableHeader>
+
+        <TableBody>
+          {isLoading ? (
+            <TableRow>
+              <TableCell colSpan={5} className="text-center py-5">
+                <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-blue-500"></div>
+              </TableCell>
+            </TableRow>
+          ) : error ? (
+            <TableRow>
+              <TableCell colSpan={5} className="text-center text-red-600 py-5">
+               
+                {error.status==404?"NO REQUEST FOUND":" Failed to load data. Please try again later."}
+              </TableCell>
+            </TableRow>
+          ) : currentRows.length === 0 ? (
+            <TableRow>
+              <TableCell colSpan={5} className="text-center py-5">
+                No URLs available. Start by adding one!
+              </TableCell>
+            </TableRow>
+          ) : (
+            currentRows.map((url) => (
+              <TableRow key={url._id} className={url.status=="Success"?"bg-green-500 transition duration-150 hover:bg-green-700 text-white":"bg-red-500 text-white transition duration-150 hover:bg-red-700"}>
+                <TableCell className="py-3 px-4">{url.Device_name}</TableCell>
+                <TableCell className="py-3 px-4">
+                  {url.ipAddress}
+                </TableCell>
+                <TableCell className="py-3 px-4">
+                  {url.status}
+                </TableCell>
+                <TableCell className="py-3 px-4">
+                  {new Date(url.createdAt).toLocaleString("en-IN", {
+                    year: "numeric",
+                    month: "short",
+                    day: "numeric",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                    second: "2-digit",
+                    hour12: true,
+                    timeZone: "Asia/Kolkata",
+                  })}
+                </TableCell>
+              </TableRow>
+            ))
+          )}
+        </TableBody>
+      </Table>
+
+      <Pagination>
+        <PaginationContent>
+          <PaginationItem>
+            <PaginationLink onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage === 1}>
+              Prev
+            </PaginationLink>
+          </PaginationItem>
+          <PaginationEllipsis />
+          <PaginationItem>
+            <PaginationLink>{currentPage}</PaginationLink>
+          </PaginationItem>
+          <PaginationEllipsis />
+          <PaginationItem>
+            <PaginationLink onClick={() => handlePageChange(currentPage + 1)} disabled={currentPage === totalPages}>
+              Next
+            </PaginationLink>
+          </PaginationItem>
+        </PaginationContent>
+      </Pagination>
+    </>
   );
 }
