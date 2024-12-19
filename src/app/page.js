@@ -1,4 +1,4 @@
-"use client"
+"use client";
 import Cookies from "js-cookie";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -8,6 +8,7 @@ import Link from "next/link";
 import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Button } from "@/components/ui/button";
+
 import {
   Table,
   TableBody,
@@ -18,6 +19,18 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
+import { format } from "date-fns";
+import { CalendarIcon } from "lucide-react";
+import { Eye, EyeOff, Copy } from "lucide-react";
+
+import { cn } from "@/lib/utils";
+import { Calendar } from "@/components/ui/calendar";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+
 export default function Home() {
   const queryClient = useQueryClient();
   const [usertoken, setUserToken] = useState(null);
@@ -26,8 +39,17 @@ export default function Home() {
   const [secretkeystatus, setSecretkeyStatus] = useState(true);
   const router = useRouter();
   const [currentPage, setCurrentPage] = useState(1);
-  const rowsPerPage = 4;
+  const rowsPerPage = 10;
   const [pagination, setPagination] = useState({ page: 1, totalPages: 1 });
+  const [date, setDate] = useState();
+  const [visibleKeys, setVisibleKeys] = useState({});
+
+  const toggleVisibility = (index) => {
+    setVisibleKeys((prev) => ({
+      ...prev,
+      [index]: !prev[index],
+    }));
+  };
 
   const fetchUrls = async (page) => {
     const response = await axios.get(
@@ -43,7 +65,7 @@ export default function Home() {
       }
     );
     setPagination(response.data.pagination);
-    console.log(response.data.pagination)
+    console.log(response.data.pagination);
     return response.data;
   };
   const { isLoading, error, data, isFetching } = useQuery({
@@ -51,7 +73,7 @@ export default function Home() {
     queryFn: () => fetchUrls(currentPage),
     enabled: !!usertoken, // Only run the query if the token exists
   });
-  
+
   const Urls = data?.message || [];
 
   useEffect(() => {
@@ -60,17 +82,78 @@ export default function Home() {
   }, []);
 
   const handlePageChange = (page) => {
-    if (page < 1 || page > pagination.totalPages || page === currentPage) return; // prevent invalid page change
+    if (page < 1 || page > pagination.totalPages || page === currentPage)
+      return; // prevent invalid page change
     setCurrentPage(page);
     queryClient.invalidateQueries(["Urls", page]); // Invalidate query to fetch new page data
   };
+  const url_expiry_status_update = useMutation({
+    mutationFn: async ({ url_id }) => {
+      try {
+        const response = await axios.put(
+          `${process.env.NEXT_PUBLIC_DB_API}/url_expire_update`,
+          { url_id },
+          {
+            headers: {
+              Authorization: `Bearer ${usertoken}`,
+            },
+          }
+        );
+        return response;
+      } catch (error) {
+        // Detailed error handling for different cases
+        if (error.response) {
+          if (error.response.status === 400) {
+            console.error("Bad Request:", error.response.data);
+            return error.response; // Return the response to handle it in onError
+          } else if (error.response.status === 401) {
+            console.error("Unauthorized request:", error.response.data);
+            return error.response; // Handle 401 response in onError
+          }
+          console.error("Error response:", error.response);
+        } else if (error.request) {
+          // No response was received
+          console.error("Network Error: No response received", error.request);
+        } else {
+          // Other errors
+          console.error("Error in request setup:", error.message);
+        }
+        throw error; // Throw the error to be handled in onError
+      }
+    },
+    onSuccess: (res) => {
+      const { status, data } = res;
+
+      if (status === 401) {
+        Cookies.remove("token");
+        alert("Session has expired. Please log in again.");
+        router.push("/authentication");
+      } else if (status === 200) {
+        alert(data.message);
+        // Invalidating the URL query cache after the update
+        queryClient.invalidateQueries(["Urls"]);
+      } else {
+        console.warn("Unexpected status code:", status);
+      }
+    },
+    onError: (error) => {
+      alert("An error occurred: " + error.message);
+      // You can log the error details here if needed
+      console.error("Error details:", error);
+    },
+  });
 
   const mutation = useMutation({
     mutationFn: async ({ original_url, friendly_name }) => {
       try {
         const response = await axios.post(
           `${process.env.NEXT_PUBLIC_DB_API}/createShortendUrl`,
-          { original_url, friendly_name, secret_key_status: secretkeystatus },
+          {
+            original_url,
+            friendly_name,
+            secret_key_status: secretkeystatus,
+            expire_time: date,
+          },
           {
             headers: {
               Authorization: `Bearer ${usertoken}`,
@@ -135,15 +218,17 @@ export default function Home() {
                 Logout
               </Button>
             </div>
-          ) : <div className="w-full flex justify-end">
-          <Button
-            onClick={() => {
-              router.push("/authentication")
-            }}
-          >
-            Login
-          </Button>
-        </div>}
+          ) : (
+            <div className="w-full flex justify-end">
+              <Button
+                onClick={() => {
+                  router.push("/authentication");
+                }}
+              >
+                Login
+              </Button>
+            </div>
+          )}
           <form onSubmit={submit}>
             <Input
               type="text"
@@ -182,6 +267,31 @@ export default function Home() {
                 </div>
               </RadioGroup>
             </div>
+            <div className="flex w-full px-2 mb-2">
+              <label className="w-2/3 py-1 pr-2">Expiry-Date (optional):</label>
+              <Popover className="w-1/3 ">
+                <PopoverTrigger asChild>
+                  <Button
+                    variant={"outline"}
+                    className={cn(
+                      "w-[280px] justify-start text-left font-normal",
+                      !date && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon />
+                    {date ? format(date, "PPP") : <span>Pick a date</span>}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0">
+                  <Calendar
+                    mode="single"
+                    selected={date}
+                    onSelect={setDate}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
 
             <div className="w-full flex justify-center">
               <Button type="submit">Convert</Button>
@@ -189,119 +299,183 @@ export default function Home() {
           </form>
         </div>
       </div>
-        {usertoken?<div className="w-full  justify-center ">
-        <div className="overflow-x-auto p-3">
-          <Table className="min-w-full border rounded-lg">
-            <TableCaption>
-              A comprehensive list of shortened URLs with their metadata.
-            </TableCaption>
+      {usertoken ? (
+        <div className="w-full  justify-center ">
+          <div className="overflow-x-auto p-3">
+            <Table className="min-w-full border rounded-lg">
+              <TableCaption>
+                A comprehensive list of shortened URLs with their metadata.
+              </TableCaption>
 
-            <TableHeader>
-              <TableRow className="bg-gray-100">
-                <TableHead className="text-left py-3 px-4">Friendly Name</TableHead>
-                <TableHead className="text-left py-3 px-4">Shortened URL</TableHead>
-                <TableHead className="text-left py-3 px-4">Created At</TableHead>
-                <TableHead className="text-left py-3 px-4">Secret Key</TableHead>
-                <TableHead className="text-center py-3 px-4">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
+              <TableHeader>
+                <TableRow className="bg-gray-100">
+                  <TableHead className="text-center py-3 px-4">
+                    Friendly Name
+                  </TableHead>
+                  <TableHead className="text-center py-3 px-4">
+                    Shortened URL
+                  </TableHead>
 
-            <TableBody>
-              {isLoading ? (
-                <TableRow>
-                  <TableCell colSpan={5} className="text-center py-5">
-                    <div className="flex justify-center items-center">
-                      <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-blue-500"></div>
-                    </div>
-                  </TableCell>
+                  <TableHead className="text-center py-3 px-4">
+                    Secret Key
+                  </TableHead>
+                  <TableHead className="text-center py-3 px-4">
+                    Created At
+                  </TableHead>
+                  <TableHead className="text-center py-3 px-4">
+                    Actions
+                  </TableHead>
                 </TableRow>
-              ) : error ? (
-                <TableRow>
-                  <TableCell
-                    colSpan={5}
-                    className="text-center text-red-600 py-5"
-                  >
-                    Failed to load data. Please try again later.
-                  </TableCell>
-                </TableRow>
-              ) : Urls.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={5} className="text-center py-5">
-                    No URLs available. Start by adding one!
-                  </TableCell>
-                </TableRow>
-              ) : (
-                Urls.map((url) => (
-                  <TableRow key={url._id}>
-                    <TableCell className="py-3 px-4">{url.friendly_name}</TableCell>
-                    <TableCell className="py-3 px-4">
-                      <Button
-                        variant="link"
-                        onClick={() =>
-                          window.open(url.shortened_url, "_blank")
-                        }
-                        className="text-blue-500 hover:underline"
-                      >
-                        {url.shortened_url}
-                      </Button>
-                    </TableCell>
-                    <TableCell className="py-3 px-4">
-                      {new Date(url.createdAt).toLocaleString("en-IN", {
-                        year: "numeric",
-                        month: "short",
-                        day: "numeric",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                        second: "2-digit",
-                        hour12: true,
-                        timeZone: "Asia/Kolkata",
-                      })}
-                    </TableCell>
-                    <TableCell className="py-3 px-4">
-                      {url.secret_key ? url.secret_key : "-"}
-                    </TableCell>
-                    <TableCell className="py-3 px-4 text-center">
-                      <Button
-                        variant="outline"
-                        className="mr-2"
-                        onClick={() => {
-                          router.push("/Url");
-                          Cookies.set("url_id", url._id);
-                          Cookies.set("shortendurl", url.shortened_url);
-                          Cookies.set("url_original", url.original_url);
-                          Cookies.set("friendly_name", url.friendly_name);
-                          Cookies.set("Creation_time", url.createdAt);
-                          Cookies.set("secret_key",  (url.secret_key ? url.secret_key : "-"));
-                        }}
-                      >
-                        View
-                      </Button>
+              </TableHeader>
+
+              <TableBody>
+                {isLoading ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center py-5">
+                      <div className="flex justify-center items-center">
+                        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-blue-500"></div>
+                      </div>
                     </TableCell>
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
+                ) : error ? (
+                  <TableRow>
+                    <TableCell
+                      colSpan={5}
+                      className="text-center text-red-600 py-5"
+                    >
+                      Failed to load data. Please try again later.
+                    </TableCell>
+                  </TableRow>
+                ) : Urls.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center py-5">
+                      No URLs available. Start by adding one!
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  Urls.map((url, index) => (
+                    <TableRow key={url._id}>
+                      <TableCell className="py-3 px-4 text-center">
+                        {url.friendly_name}
+                      </TableCell>
+                      <TableCell className="py-3 px-4 text-center">
+                        <Button
+                          variant="link"
+                          onClick={() =>
+                            window.open(url.shortened_url, "_blank")
+                          }
+                          className="text-blue-500 hover:underline"
+                        >
+                          {url.shortened_url}
+                        </Button>
+                      </TableCell>
 
-          {/* Pagination */}
-          <div className="flex justify-center py-4">
-            <Button
-              onClick={() => handlePageChange(currentPage - 1)}
-              disabled={currentPage === 1}
+                      <TableCell className="py-3 px-4 text-center">
+                        {url.secret_key
+                          ? visibleKeys[index]
+                            ? url.secret_key
+                            : "**********"
+                          : "-"}
+                        {!url.secret_key ? null : (<>
+                          <Button
+                            className="mx-2"
+                            onClick={() => toggleVisibility(index)}
+                          >
+                            {visibleKeys[index] ? (
+                              <Eye size={20} />
+                            ) : (
+                              <EyeOff size={20} />
+                            )}
+                          </Button>
+                          <Button
+             
+              onClick={() => {
+                navigator.clipboard
+                  .writeText(url.secret_key)
+                  .then(() => alert("Secret Key copied to clipboard!"))
+                  .catch((error) => alert("Failed to copy the secret key."));
+              }}
             >
-              Previous
-            </Button>
-            <div className="mx-3">{`Page ${currentPage} of ${pagination.totalPages}`}</div>
-            <Button
-              onClick={() => handlePageChange(currentPage + 1)}
-              disabled={currentPage === pagination.totalPages}
-            >
-              Next
-            </Button>
+              <Copy size={20}/>
+            </Button></>
+                        )}
+                      </TableCell>
+                      <TableCell className="py-3 px-4 text-center">
+                        {new Date(url.createdAt).toLocaleString("en-IN", {
+                          year: "numeric",
+                          month: "short",
+                          day: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                          second: "2-digit",
+                          hour12: true,
+                          timeZone: "Asia/Kolkata",
+                        })}
+                      </TableCell>
+                      <TableCell className="py-3 px-4 text-center">
+                        <Button
+                          variant="outline"
+                          className="mr-2"
+                          onClick={() => {
+                            router.push("/Url");
+                            Cookies.set("url_id", url._id);
+                            Cookies.set("shortendurl", url.shortened_url);
+                            Cookies.set("url_original", url.original_url);
+                            Cookies.set("friendly_name", url.friendly_name);
+                            Cookies.set("Creation_time", url.createdAt);
+                            Cookies.set(
+                              "secret_key",
+                              url.secret_key ? url.secret_key : "-"
+                            );
+                          }}
+                        >
+                          View
+                        </Button>
+                        {!url.expired ? (
+                          <Button
+                            onClick={() => {
+                              if (url_expiry_status_update.isLoading) return; // Prevent duplicate clicks while loading
+
+                              // Trigger the mutation
+                              url_expiry_status_update.mutate({
+                                url_id: url._id,
+                              });
+                            }}
+                            disabled={url_expiry_status_update.isLoading} // Disable button during loading
+                          >
+                            {url_expiry_status_update.isLoading
+                              ? "Expiring..."
+                              : "Stop"}
+                          </Button>
+                        ) : (
+                          <label>expired</label>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+
+            {/* Pagination */}
+            <div className="flex justify-center py-4">
+              <Button
+                onClick={() => handlePageChange(currentPage - 1)}
+                disabled={currentPage === 1}
+              >
+                Previous
+              </Button>
+              <div className="mx-3">{`Page ${currentPage} of ${pagination.totalPages}`}</div>
+              <Button
+                onClick={() => handlePageChange(currentPage + 1)}
+                disabled={currentPage === pagination.totalPages}
+              >
+                Next
+              </Button>
+            </div>
           </div>
         </div>
-      </div>:null}
-      
+      ) : null}
     </div>
   );
 }

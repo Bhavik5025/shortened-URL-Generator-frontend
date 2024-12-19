@@ -40,9 +40,9 @@ const fetchUrls = async (url_id, token) => {
   return response.data.urls;
 };
 
-const fetchCount = async (url_id, endpoint, token) => {
+const fetchCount = async (url_id,token) => {
   const response = await axios.post(
-    `${process.env.NEXT_PUBLIC_DB_API}/${endpoint}`,
+    `${process.env.NEXT_PUBLIC_DB_API}/totalcounts`,
     { url_id },
     {
       headers: {
@@ -50,7 +50,8 @@ const fetchCount = async (url_id, endpoint, token) => {
       },
     }
   );
-  return response.data.success || 0;
+  console.log(response.data)
+  return response.data;
 };
 
 export default function Url() {
@@ -99,17 +100,13 @@ export default function Url() {
     enabled: !!url_id && !!usertoken, // Ensure both values are truthy
   });
   
-  const { data: success, isLoading: isLoadingSuccess } = useQuery({
+  const { data: count, isLoading: isLoadingSuccess } = useQuery({
     queryKey: ["Success_Count", url_id],
-    queryFn: () => fetchCount(url_id, "success_count", usertoken),
+    queryFn: () => fetchCount(url_id, usertoken),
     enabled: !!url_id && !!usertoken, // Ensure both values are truthy
   });
   
-  const { data: failure, isLoading: isLoadingFailure } = useQuery({
-    queryKey: ["Failure_Count", url_id],
-    queryFn: () => fetchCount(url_id, "failure_count", usertoken),
-    enabled: !!url_id && !!usertoken, // Ensure both values are truthy
-  });
+  
   
 
   const [currentPage, setCurrentPage] = useState(1);
@@ -156,13 +153,13 @@ export default function Url() {
         <div className="mb-4">
           <h2>
             <b>Total Successful Clicks:</b>{" "}
-            {isLoadingSuccess ? "Loading..." : success}
+            {isLoadingSuccess ? "Loading..." : count?.Success}
           </h2>
         </div>
         <div className="mb-4">
           <h2>
             <b>Total Failed Clicks:</b>{" "}
-            {isLoadingFailure ? "Loading..." : failure}
+            {isLoadingSuccess ? "Loading..." : count?.Failure}
           </h2>
         </div>
         {urlData.secret_key!="-"?<div className="mb-4">
@@ -194,10 +191,11 @@ export default function Url() {
         <TableCaption>URL Request Statistics</TableCaption>
         <TableHeader>
           <TableRow className="bg-gray-100">
-            <TableHead className="text-left py-3 px-4">Device and Browser</TableHead>
-            <TableHead className="text-left py-3 px-4">IP Address</TableHead>
-            <TableHead className="text-left py-3 px-4">Status</TableHead>
-            <TableHead className="text-left py-3 px-4">Time</TableHead>
+            <TableHead className="py-3 px-4 text-center">Device</TableHead>
+            <TableHead className="text-center py-3 px-4">IP Address</TableHead>
+            <TableHead className="text-center py-3 px-4">First Request</TableHead>
+            <TableHead className="text-center py-3 px-4">Last Request</TableHead>
+            <TableHead className="text-center py-3 px-4">Total Requests</TableHead>
           </TableRow>
         </TableHeader>
 
@@ -223,16 +221,13 @@ export default function Url() {
             </TableRow>
           ) : (
             currentRows.map((url) => (
-              <TableRow key={url._id} className={url.status=="Success"?"bg-green-500 transition duration-150 hover:bg-green-700 text-white":"bg-red-500 text-white transition duration-150 hover:bg-red-700"}>
-                <TableCell className="py-3 px-4">{url.Device_name}</TableCell>
-                <TableCell className="py-3 px-4">
+              <TableRow key={url.ipAddress} className="">
+                <TableCell className="py-3 px-4 text-center">{url.firstDeviceName}</TableCell>
+                <TableCell className="py-3 px-4 text-center">
                   {url.ipAddress}
                 </TableCell>
-                <TableCell className="py-3 px-4">
-                  {url.status}
-                </TableCell>
-                <TableCell className="py-3 px-4">
-                  {new Date(url.createdAt).toLocaleString("en-IN", {
+                <TableCell className="py-3 px-4 text-center">
+                {new Date(url.firstCreatedAt).toLocaleString("en-IN", {
                     year: "numeric",
                     month: "short",
                     day: "numeric",
@@ -243,6 +238,19 @@ export default function Url() {
                     timeZone: "Asia/Kolkata",
                   })}
                 </TableCell>
+                <TableCell className="py-3 px-4 text-center">
+                  {new Date(url.lastCreatedAt).toLocaleString("en-IN", {
+                    year: "numeric",
+                    month: "short",
+                    day: "numeric",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                    second: "2-digit",
+                    hour12: true,
+                    timeZone: "Asia/Kolkata",
+                  })}
+                </TableCell>
+                <TableCell className="py-3 px-4 text-center">{url.count}</TableCell>
               </TableRow>
             ))
           )}
