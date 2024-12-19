@@ -64,7 +64,7 @@ export default function Register() {
         required
       ></Input>
       <div className="w-full flex justify-center">
-        <Button type="submit" >Save</Button>
+        <Button type="submit" >Register</Button>
       </div>
     </form>
   );
