@@ -165,7 +165,7 @@ export default function Url() {
             {isLoadingFailure ? "Loading..." : failure}
           </h2>
         </div>
-        <div className="mb-4">
+        {urlData.secret_key!="-"?<div className="mb-4">
           <h2>
             <b>Secret Key:</b>
             <input
@@ -186,7 +186,8 @@ export default function Url() {
               copy
             </i>
           </h2>
-        </div>
+        </div>:null}
+        
       </div>
 
       <Table className="p-6 max-w-4xl mx-auto bg-white shadow-lg rounded-lg">

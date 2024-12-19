@@ -135,7 +135,15 @@ export default function Home() {
                 Logout
               </Button>
             </div>
-          ) : null}
+          ) : <div className="w-full flex justify-end">
+          <Button
+            onClick={() => {
+              router.push("/authentication")
+            }}
+          >
+            Login
+          </Button>
+        </div>}
           <form onSubmit={submit}>
             <Input
               type="text"
@@ -181,8 +189,7 @@ export default function Home() {
           </form>
         </div>
       </div>
-
-      <div className="w-full  justify-center ">
+        {usertoken?<div className="w-full  justify-center ">
         <div className="overflow-x-auto p-3">
           <Table className="min-w-full border rounded-lg">
             <TableCaption>
@@ -260,6 +267,11 @@ export default function Home() {
                         onClick={() => {
                           router.push("/Url");
                           Cookies.set("url_id", url._id);
+                          Cookies.set("shortendurl", url.shortened_url);
+                          Cookies.set("url_original", url.original_url);
+                          Cookies.set("friendly_name", url.friendly_name);
+                          Cookies.set("Creation_time", url.createdAt);
+                          Cookies.set("secret_key",  (url.secret_key ? url.secret_key : "-"));
                         }}
                       >
                         View
@@ -288,7 +300,8 @@ export default function Home() {
             </Button>
           </div>
         </div>
-      </div>
+      </div>:null}
+      
     </div>
   );
 }
